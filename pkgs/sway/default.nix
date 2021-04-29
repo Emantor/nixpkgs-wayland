@@ -21,6 +21,7 @@ stdenv.mkDerivation rec {
   patches = [
     ./sway-config-no-nix-store-references.patch
     ./load-configuration-from-etc.patch
+    ./0001-view-handle-case-where-map_ws-is-NULL.patch
     (substituteAll {
       src = ./fix-paths.patch;
       inherit swaybg;

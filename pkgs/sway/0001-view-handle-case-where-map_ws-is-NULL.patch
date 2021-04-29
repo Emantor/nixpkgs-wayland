@@ -1,0 +1,77 @@
+From e8dd2adfb136e94b7e2c02038b848979bc009299 Mon Sep 17 00:00:00 2001
+From: Rouven Czerwinski <rouven@czerwinskis.de>
+Date: Thu, 29 Apr 2021 08:49:04 +0200
+Subject: [PATCH] view: handle case where map_ws is NULL
+
+When a criteria places the view into the scratchpad, map_ws is NULL and
+trying to access map_ws->fullscreen will result in SIGSEGFAULT with:
+
+  #0  0x0000000000455327 in should_focus (view=0x15a6a70) at ../sway/tree/view.c:604
+          prev_con = 0x0
+          len = <optimized out>
+          seat = 0x12233c0
+          prev_ws = 0x1264c80
+          map_ws = 0x0
+          criterias = <optimized out>
+          seat = <optimized out>
+          prev_con = <optimized out>
+          prev_ws = <optimized out>
+          map_ws = <optimized out>
+          criterias = <optimized out>
+          len = <optimized out>
+          num_children = <optimized out>
+  #1  view_map (view=view@entry=0x15a6a70, wlr_surface=0x15a5cb0, fullscreen=<optimized out>, fullscreen_output=<optimized out>, decoration=<optimized out>) at ../sway/tree/view.c:809
+          __PRETTY_FUNCTION__ = "view_map"
+          ws = <optimized out>
+          seat = <optimized out>
+          node = <optimized out>
+          target_sibling = <optimized out>
+          container = 0x1625400
+          set_focus = <optimized out>
+          app_id = <optimized out>
+          class = <optimized out>
+  #2  0x0000000000423a7e in handle_map (listener=0x15a6c78, data=<optimized out>) at ../sway/desktop/xdg_shell.c:454
+          xdg_shell_view = 0x15a6a70
+          view = 0x15a6a70
+          xdg_surface = 0x15a6620
+          csd = <optimized out>
+  #3  0x00007f508bd3674c in wlr_signal_emit_safe (signal=signal@entry=0x15a6718, data=data@entry=0x15a6620) at ../subprojects/wlroots/util/signal.c:29
+          pos = 0x15a6c78
+          l = 0x15a6c78
+          cursor = {link = {prev = 0x15a6c78, next = 0x7fff53d58190}, notify = 0x7f508bd366c0 <handle_noop>}
+          end = {link = {prev = 0x7fff53d58170, next = 0x15a6718}, notify = 0x7f508bd366c0 <handle_noop>}
+  #4  0x00007f508bd15b29 in handle_xdg_surface_commit (wlr_surface=<optimized out>) at ../subprojects/wlroots/types/xdg_shell/wlr_xdg_surface.c:384
+          surface = 0x15a6620
+  #5  0x00007f508bd2e981 in surface_commit_state (surface=surface@entry=0x15a5cb0, next=next@entry=0x15a5e18) at ../subprojects/wlroots/types/wlr_surface.c:455
+          __PRETTY_FUNCTION__ = "surface_commit_state"
+          invalid_buffer = <optimized out>
+          subsurface = 0x15a6038
+  #6  0x00007f508bd2f53b in surface_commit_pending (surface=0x15a5cb0) at ../subprojects/wlroots/types/wlr_surface.c:474
+          next_seq = 3
+          next_seq = <optimized out>
+  #7  surface_commit (client=<optimized out>, resource=<optimized out>) at ../subprojects/wlroots/types/wlr_surface.c:542
+          surface = 0x15a5cb0
+          subsurface = <optimized out>
+
+If map_ws is NULL we assume the view is places into the scratchpad and
+return false as well.
+---
+ sway/tree/view.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sway/tree/view.c b/sway/tree/view.c
+index 32df19e5..49e6f599 100644
+--- a/sway/tree/view.c
++++ b/sway/tree/view.c
+@@ -601,7 +601,7 @@ static bool should_focus(struct sway_view *view) {
+ 	}
+ 
+ 	// View opened "under" fullscreen view should not be given focus.
+-	if (root->fullscreen_global || map_ws->fullscreen) {
++	if (root->fullscreen_global || !map_ws || map_ws->fullscreen) {
+ 		return false;
+ 	}
+ 
+-- 
+2.31.1
+
